@@ -137,12 +137,14 @@ def tutorial_1():
     # --- Node listing ---
     st.subheader("Node Details")
     transceivers = _get_transceivers(network)
-    st.write(f"**Transceivers ({len(transceivers)}):** {', '.join(sorted(transceivers.keys()))}")
+    trx_count = len(transceivers)
+    trx_list = ', '.join(sorted(transceivers.keys()))
+    st.write("**Transceivers (%d):** %s" % (trx_count, trx_list))
 
     with st.expander("All nodes", expanded=False):
         for node in sorted(nodes, key=lambda n: n.uid):
             tname = _element_type_name(node)
-            st.write(f"- `{node.uid}` ({tname})")
+            st.write("- `%s` (%s)" % (node.uid, tname))
 
 
 def _draw_network_diagram(network):
@@ -308,8 +310,8 @@ def _run_simulation(equipment_orig, network_key, source, destination, power_dbm=
     # Path info
     spans = [s.params.length for s in path if isinstance(s, (Fiber, RamanFiber))]
     total_km = sum(spans) / 1000
-    st.write(f"**Path:** {len(path)} elements, {len(spans)} fiber spans, "
-             f"{'%.1f' % total_km} km total fiber")
+    st.write("**Path:** %d elements, %d fiber spans, %.1f km total fiber"
+             % (len(path), len(spans), total_km))
 
     # Chart 1: GSNR spectrum
     st.subheader("GSNR Spectrum")

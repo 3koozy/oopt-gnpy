@@ -185,7 +185,7 @@ def main():
 
     # Total row
     print("-" * (20 + col_width * len(BENCHMARKS)))
-    row = f"{'TOTAL':<20}"
+    row = "%-20s" % "TOTAL"
     for name in BENCHMARKS:
         total_vals = []
         for phase in phases:
@@ -195,9 +195,9 @@ def main():
                 total_vals.append(statistics.mean(clean))
         if total_vals:
             total_ms = sum(total_vals) * 1000
-            row += f"{total_ms:>{col_width - 3}.1f} ms"
+            row += "%*.1f ms" % (col_width - 3, total_ms)
         else:
-            row += f"{'N/A':>{col_width}}"
+            row += "%*s" % (col_width, "N/A")
     print(row)
 
     print("\n" + "=" * 80)

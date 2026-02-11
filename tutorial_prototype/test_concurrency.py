@@ -101,7 +101,7 @@ def test_process_pool_isolation():
     t0 = time.perf_counter()
     reference = _run_single_simulation(config)
     t_ref = time.perf_counter() - t0
-    print(f"  Reference GSNR: {reference['avg_gsnr']:.4f} dB (took {t_ref * 1000:.1f} ms)")
+    print("  Reference GSNR: %.4f dB (took %.1f ms)" % (reference['avg_gsnr'], t_ref * 1000))
 
     # Run concurrent simulations with same parameters
     print(f"\n  Running {NUM_WORKERS} concurrent simulations...")
@@ -120,8 +120,8 @@ def test_process_pool_isolation():
         return False
 
     # Verify results match reference
-    print(f"  Concurrent execution took {t_concurrent * 1000:.1f} ms "
-          f"({t_concurrent / t_ref:.1f}x vs single-threaded)")
+    print("  Concurrent execution took %.1f ms (%.1fx vs single-threaded)"
+          % (t_concurrent * 1000, t_concurrent / t_ref))
 
     all_match = True
     for i, result in enumerate(results):
@@ -130,8 +130,8 @@ def test_process_pool_isolation():
         status = "PASS" if (gsnr_match and osnr_match) else "FAIL"
         if status == "FAIL":
             all_match = False
-        print(f"  Worker {i + 1}: GSNR={result['avg_gsnr']:.4f} dB, "
-              f"OSNR={result['avg_osnr']:.4f} dB [{status}]")
+        print("  Worker %d: GSNR=%.4f dB, OSNR=%.4f dB [%s]"
+              % (i + 1, result['avg_gsnr'], result['avg_osnr'], status))
 
     # Test with different power levels to verify isolation
     print(f"\n  Running {NUM_WORKERS} concurrent simulations with DIFFERENT powers...")
@@ -154,7 +154,7 @@ def test_process_pool_isolation():
     else:
         print("  Different powers produced different GSNR values (isolation confirmed):")
         for p, r in zip(powers, results_diff):
-            print(f"    Power={p:+.1f} dBm -> GSNR={r['avg_gsnr']:.4f} dB")
+            print("    Power=%+.1f dBm -> GSNR=%.4f dB" % (p, r['avg_gsnr']))
 
     # Get single-threaded references for each power to verify correctness
     references_diff = []
@@ -167,8 +167,8 @@ def test_process_pool_isolation():
         gsnr_match = allclose(result['gsnr_values'], ref['gsnr_values'], atol=1e-6)
         if not gsnr_match:
             diff_match = False
-            print(f"  Worker {i + 1} (power={powers[i]}): MISMATCH "
-                  f"concurrent={result['avg_gsnr']:.4f} vs ref={ref['avg_gsnr']:.4f}")
+            print("  Worker %d (power=%s): MISMATCH concurrent=%.4f vs ref=%.4f"
+                  % (i + 1, powers[i], result['avg_gsnr'], ref['avg_gsnr']))
 
     if diff_match:
         print("  All concurrent results match single-threaded references.")
@@ -253,7 +253,7 @@ def test_deep_copy_thread_local():
     t0 = time.perf_counter()
     reference = _run_single_simulation(config)
     t_ref = time.perf_counter() - t0
-    print(f"  Reference GSNR: {reference['avg_gsnr']:.4f} dB (took {t_ref * 1000:.1f} ms)")
+    print("  Reference GSNR: %.4f dB (took %.1f ms)" % (reference['avg_gsnr'], t_ref * 1000))
 
     # Run concurrent simulations with SAME parameters (best-case test)
     print(f"\n  Running {NUM_WORKERS} concurrent threads (same parameters)...")
@@ -274,8 +274,8 @@ def test_deep_copy_thread_local():
         t.join()
     t_concurrent = time.perf_counter() - t0
 
-    print(f"  Concurrent execution took {t_concurrent * 1000:.1f} ms "
-          f"({t_concurrent / t_ref:.1f}x vs single-threaded)")
+    print("  Concurrent execution took %.1f ms (%.1fx vs single-threaded)"
+          % (t_concurrent * 1000, t_concurrent / t_ref))
 
     same_param_pass = True
     for i in range(NUM_WORKERS):
@@ -291,7 +291,7 @@ def test_deep_copy_thread_local():
             status = "PASS" if gsnr_match else "FAIL"
             if not gsnr_match:
                 same_param_pass = False
-            print(f"  Thread {i + 1}: GSNR={result['avg_gsnr']:.4f} dB [{status}]")
+            print("  Thread %d: GSNR=%.4f dB [%s]" % (i + 1, result['avg_gsnr'], status))
 
     # Run with DIFFERENT powers to test isolation
     print(f"\n  Running {NUM_WORKERS} concurrent threads with DIFFERENT powers...")
@@ -310,7 +310,6 @@ def test_deep_copy_thread_local():
 
     for t in threads_diff:
         t.join()
-    t_diff = time.perf_counter() - t0
 
     # Get single-threaded references for each power
     references_diff = []
@@ -331,8 +330,8 @@ def test_deep_copy_thread_local():
             status = "PASS" if gsnr_match else "FAIL (race condition?)"
             if not gsnr_match:
                 diff_param_pass = False
-            print(f"  Thread {i + 1} (power={powers[i]:+.1f} dBm): "
-                  f"GSNR={result['avg_gsnr']:.4f} dB (ref={ref['avg_gsnr']:.4f}) [{status}]")
+            print("  Thread %d (power=%+.1f dBm): GSNR=%.4f dB (ref=%.4f) [%s]"
+                  % (i + 1, powers[i], result['avg_gsnr'], ref['avg_gsnr'], status))
 
     overall = same_param_pass and diff_param_pass
     if not overall:
@@ -357,8 +356,10 @@ def main():
     print("\n" + "=" * 70)
     print("FINAL SUMMARY")
     print("=" * 70)
-    print(f"  Approach 1 (Process Pool):       {'PASS' if result_1 else 'FAIL'}")
-    print(f"  Approach 2 (Deep Copy + Thread):  {'PASS' if result_2 else 'FAIL'}")
+    status_1 = 'PASS' if result_1 else 'FAIL'
+    status_2 = 'PASS' if result_2 else 'FAIL'
+    print(f"  Approach 1 (Process Pool): {status_1}")
+    print(f"  Approach 2 (Deep Copy + Thread): {status_2}")
     print()
     if result_1 and not result_2:
         print("  RECOMMENDATION: Use multiprocessing.Pool for concurrent simulations.")
