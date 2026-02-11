@@ -65,3 +65,10 @@ target/
 
 # MacOS DS_store
 .DS_Store
+
+# Virtual environments
+.venv/
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/CLAUDE.local.md
