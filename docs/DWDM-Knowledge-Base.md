@@ -31,13 +31,8 @@ Wavelength Division Multiplexing (WDM) transmits multiple optical signals simult
 The usable spectrum in silica fiber is divided into bands:
 
 ```mermaid
-block-beta
-    columns 5
-    space
-    S["S-Band\n1460-1530 nm\n~196-205 THz"]:1
-    C["C-Band\n1530-1565 nm\n~191-196 THz"]:1
-    L["L-Band\n1565-1625 nm\n~184-191 THz"]:1
-    space
+graph LR
+    S["S-Band<br/>1460-1530 nm<br/>~196-205 THz"] --- C["C-Band<br/>1530-1565 nm<br/>~191-196 THz"] --- L["L-Band<br/>1565-1625 nm<br/>~184-191 THz"]
 
     style C fill:#2563eb,color:#fff
     style L fill:#7c3aed,color:#fff
@@ -55,6 +50,16 @@ The ITU-T G.694.1 standard defines the channel plan for DWDM systems. All channe
 $$f_n = 193.1 \text{ THz} + n \times 6.25 \text{ GHz}$$
 
 where $n$ is any integer (positive, negative, or zero).
+
+<details><summary>Pseudo Code</summary>
+
+```python
+def frequency_from_slot(n):
+    """ITU-T G.694.1 channel frequency from slot number."""
+    return 193.1e12 + n * 6.25e9  # Hz
+```
+
+</details>
 
 **Common grid spacings:**
 
@@ -95,9 +100,33 @@ $$\text{lin2db}(x) = 10 \log_{10}(x)$$
 
 $$\text{db2lin}(x) = 10^{x/10}$$
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def dbm_to_watt(p_dbm):
+    """Convert power from dBm to Watts."""
+    return 10 ** (p_dbm / 10) * 1e-3
+
+def watt_to_dbm(p_w):
+    """Convert power from Watts to dBm."""
+    return 10 * log10(p_w * 1e3)
+```
+
+</details>
+
 **Power Spectral Density (PSD):** Power per unit frequency bandwidth, typically expressed in mW/GHz or W/Hz. For a channel with baud rate $B$:
 
 $$P_{\text{dBm}} = 10 \log_{10}(B \times \text{PSD}_{\text{mW/GHz}} \times 10^{-9})$$
+
+<details><summary>Pseudo Code</summary>
+
+```python
+def psd_to_power_dbm(baud_rate_hz, psd_mw_per_ghz):
+    """Convert PSD (mW/GHz) to channel power (dBm)."""
+    return 10 * log10(baud_rate_hz * 1e-9 * psd_mw_per_ghz)
+```
+
+</details>
 
 **Quick reference:**
 
@@ -126,9 +155,29 @@ where:
 - $\alpha$ = attenuation coefficient (Neper/m)
 - $z$ = distance along fiber (m)
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def fiber_attenuation(power_in, alpha_neper_per_m, length_m):
+    """Output power after fiber propagation."""
+    return power_in * exp(-alpha_neper_per_m * length_m)
+```
+
+</details>
+
 **Conversion from dB/km to Neper/m:**
 
 $$\alpha_{\text{Np/m}} = \frac{\alpha_{\text{dB/km}}}{10 \log_{10}(e) \times 10^3} \approx \frac{\alpha_{\text{dB/km}}}{4343}$$
+
+<details><summary>Pseudo Code</summary>
+
+```python
+def db_per_km_to_neper_per_m(alpha_db_km):
+    """Convert attenuation from dB/km to Neper/m."""
+    return alpha_db_km / (10 * log10(e) * 1e3)  # approx alpha_db_km / 4343
+```
+
+</details>
 
 **Total span loss** includes fiber attenuation, connector losses, and any inline lumped losses:
 
@@ -147,6 +196,17 @@ where:
 - $D$ = dispersion coefficient (s/m$^2$, typically expressed as ps/(nm$\cdot$km))
 - $f$ = optical frequency (Hz)
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def beta2_from_dispersion(freq_hz, dispersion_s_per_m2):
+    """Compute group velocity dispersion parameter (s^2/m)."""
+    c = 2.998e8
+    return -(c / freq_hz) ** 2 * dispersion_s_per_m2 / (2 * pi * c)
+```
+
+</details>
+
 **Dispersion with slope:**
 
 $$D(\lambda) = D(\lambda_{\text{ref}}) + S \cdot (\lambda - \lambda_{\text{ref}})$$
@@ -159,22 +219,47 @@ $$\text{CD}_{\text{acc}} = \left[\beta_2 + 2\pi \beta_3 (f - f_{\text{ref}})\rig
 
 where $\beta_3$ captures higher-order dispersion. Units: ps/nm (or equivalently, s/m after appropriate scaling).
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def accumulated_cd(beta2, beta3, freq, freq_ref, length):
+    """Accumulated chromatic dispersion over fiber length (s/m)."""
+    c = 2.998e8
+    return (beta2 + 2 * pi * beta3 * (freq - freq_ref)) * (2 * pi * freq_ref ** 2 / c) * length
+```
+
+</details>
+
 ### 2.3 Polarization Mode Dispersion (PMD)
 
 Fiber birefringence causes a random differential group delay (DGD) between orthogonal polarization modes. PMD accumulates statistically:
 
 **Single span:**
 
-$$\Delta\tau = \text{PMD\_coef} \times \sqrt{L}$$
+$$\Delta\tau = \mathrm{PMD\_coef} \times \sqrt{L}$$
 
 where:
 - $\Delta\tau$ = differential group delay (s)
-- $\text{PMD\_coef}$ = PMD coefficient (s/$\sqrt{\text{m}}$), typically 0.04 ps/$\sqrt{\text{km}}$
+- $\mathrm{PMD\_coef}$ = PMD coefficient (s/$\sqrt{\text{m}}$), typically 0.04 ps/$\sqrt{\text{km}}$
 - $L$ = fiber length (m)
 
 **Multi-element accumulation (root-sum-of-squares):**
 
 $$\text{PMD}_{\text{total}} = \sqrt{\text{PMD}_1^2 + \text{PMD}_2^2 + \cdots + \text{PMD}_N^2}$$
+
+<details><summary>Pseudo Code</summary>
+
+```python
+def pmd_single_span(pmd_coef, length_m):
+    """DGD for a single fiber span."""
+    return pmd_coef * sqrt(length_m)
+
+def pmd_total(pmd_list):
+    """Total PMD across multiple elements (root-sum-of-squares)."""
+    return sqrt(sum(p ** 2 for p in pmd_list))
+```
+
+</details>
 
 ### 2.4 Polarization Dependent Loss (PDL)
 
@@ -195,6 +280,17 @@ where:
 
 Typical value for SSMF: $\gamma \approx 1.3$ (W$\cdot$km)$^{-1}$ at 1550 nm.
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def gamma_nonlinear(freq_hz, n2, a_eff):
+    """Fiber nonlinear coefficient (1/(W·m))."""
+    c = 2.998e8
+    return 2 * pi * freq_hz * n2 / (c * a_eff)
+```
+
+</details>
+
 ### 2.6 Effective Length
 
 Nonlinear effects are significant only where optical power is high. The effective length captures this:
@@ -207,18 +303,28 @@ $$L_{\text{eff}} \to L_{\text{asym}} = \frac{1}{\alpha}$$
 
 For $\alpha = 0.046$ Np/km (0.2 dB/km), $L_{\text{asym}} \approx 21.7$ km.
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def effective_length(alpha, length):
+    """Nonlinear effective length of fiber."""
+    return (1 - exp(-alpha * length)) / alpha
+```
+
+</details>
+
 ```mermaid
 flowchart LR
-    A["Signal In"] --> B["Connector\nLoss (in)"]
+    A["Signal In"] --> B["Connector<br/>Loss (in)"]
     B --> C["Fiber Span"]
-    C --> D["Connector\nLoss (out)"]
+    C --> D["Connector<br/>Loss (out)"]
     D --> E["Signal Out"]
 
-    C --- F["Attenuation\nP(z) = P₀·e⁻ᵅᶻ"]
-    C --- G["Chromatic Dispersion\nβ₂ accumulation"]
-    C --- H["PMD\nΔτ = PMD·√L"]
-    C --- I["Nonlinear\nInterference (NLI)"]
-    C --- J["Raman\nPower Transfer"]
+    C --- F["Attenuation<br/>P(z) = P₀·e⁻ᵅᶻ"]
+    C --- G["Chromatic Dispersion<br/>β₂ accumulation"]
+    C --- H["PMD<br/>Δτ = PMD·√L"]
+    C --- I["Nonlinear<br/>Interference (NLI)"]
+    C --- J["Raman<br/>Power Transfer"]
 
     style C fill:#1e40af,color:#fff
     style F fill:#f59e0b,color:#000
@@ -260,6 +366,21 @@ $$\eta = \frac{\gamma^2 \cdot w \cdot \psi}{B_{\text{cut}} \cdot B_{\text{pump}}
   - XPM: $w = 32/27 \approx 1.185$
 - $B_{\text{cut}}$, $B_{\text{pump}}$ = baud rates of CUT and pump channels
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def gn_model_nli(power_cut, powers_pump, eta_matrix):
+    """NLI power on channel under test (GN model)."""
+    return sum(power_cut * p_pump ** 2 * eta
+               for p_pump, eta in zip(powers_pump, eta_matrix))
+
+def nli_efficiency(gamma, weight, psi, baud_cut, baud_pump):
+    """NLI efficiency coefficient eta."""
+    return gamma ** 2 * weight * psi / (baud_cut * baud_pump ** 2)
+```
+
+</details>
+
 **The psi ($\psi$) function:**
 
 $$\psi = \frac{L_{\text{eff}}^2}{2\pi |\beta_2| L_{\text{asym}}} \left[\text{arcsinh}\!\left(\pi^2 L_{\text{asym}} |\beta_2| B_{\text{cut}} \cdot f_R\right) - \text{arcsinh}\!\left(\pi^2 L_{\text{asym}} |\beta_2| B_{\text{cut}} \cdot f_L\right)\right]$$
@@ -268,6 +389,20 @@ where:
 - $f_R = \Delta f + B_{\text{pump}}/2$, $f_L = \Delta f - B_{\text{pump}}/2$
 - $\Delta f$ = frequency separation between CUT and pump
 - $L_{\text{asym}} = 1/\alpha$ (asymptotic effective length)
+
+<details><summary>Pseudo Code</summary>
+
+```python
+def psi_gn(l_eff, beta2, l_asym, baud_cut, delta_f, baud_pump):
+    """GN model psi function."""
+    f_r = delta_f + baud_pump / 2
+    f_l = delta_f - baud_pump / 2
+    coeff = l_eff ** 2 / (2 * pi * abs(beta2) * l_asym)
+    return coeff * (arcsinh(pi ** 2 * l_asym * abs(beta2) * baud_cut * f_r)
+                  - arcsinh(pi ** 2 * l_asym * abs(beta2) * baud_cut * f_l))
+```
+
+</details>
 
 ### 3.3 The GGN Model (Generalized Gaussian Noise)
 
@@ -299,15 +434,32 @@ where:
 
 The total occupied bandwidth is $(1 + \alpha_r) \cdot B$.
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def raised_cosine(f, f_center, baud_rate, roll_off):
+    """Raised cosine spectral shape."""
+    df = abs(f - f_center)
+    b, r = baud_rate, roll_off
+    if df <= (1 - r) * b / 2:
+        return 1.0
+    elif df < (1 + r) * b / 2:
+        return 0.5 * (1 + cos(pi / (b * r) * (df - (1 - r) * b / 2)))
+    else:
+        return 0.0
+```
+
+</details>
+
 ```mermaid
 flowchart TD
-    IN["Input:\nChannel Powers + Fiber Params + Raman Profile"] --> SEL{"Select NLI Method"}
+    IN["Input:<br/>Channel Powers + Fiber Params + Raman Profile"] --> SEL{"Select NLI Method"}
 
-    SEL -->|GN Analytic| GN["Compute η matrix\nusing closed-form ψ"]
-    SEL -->|GGN Spectrally Separated| GGN["For each CUT × pump:\nDouble integral with\nRC shaping + Raman ρ"]
-    SEL -->|GGN Approximate| GGNA["Asymptotic ψ\nfor well-separated channels"]
+    SEL -->|GN Analytic| GN["Compute η matrix<br/>using closed-form ψ"]
+    SEL -->|GGN Spectrally Separated| GGN["For each CUT × pump:<br/>Double integral with<br/>RC shaping + Raman ρ"]
+    SEL -->|GGN Approximate| GGNA["Asymptotic ψ<br/>for well-separated channels"]
 
-    GN --> OUT["NLI Power per Channel (W)\nP_NLI = Σ P_cut · P_pump² · η"]
+    GN --> OUT["NLI Power per Channel (W)<br/>P_NLI = Σ P_cut · P_pump² · η"]
     GGN --> OUT
     GGNA --> OUT
 
@@ -330,6 +482,16 @@ $$c_r(f_i, f_j) = \frac{\gamma_{\text{Raman}}(f_i - f_j) \cdot f_i}{A_{\text{eff
 where:
 - $\gamma_{\text{Raman}}(\Delta f)$ = normalized Raman gain spectrum (measured profile, peak at ~13 THz offset)
 - $A_{\text{eff,overlap}}$ = effective area overlap between interacting modes
+
+<details><summary>Pseudo Code</summary>
+
+```python
+def raman_coupling(freq_i, freq_j, gamma_raman_profile, a_eff):
+    """Raman coupling coefficient between channels i and j."""
+    return gamma_raman_profile(freq_i - freq_j) * freq_i / a_eff
+```
+
+</details>
 
 **The SRS coupled differential equation (per channel $i$):**
 
@@ -361,6 +523,19 @@ $$\gamma_4(z) = \sum_j c_{r,ij} \int_0^z e^{-\alpha_j z'} \left[\gamma_{3,j}(z')
 
 Higher orders provide progressively more accurate results at higher computational cost. Order 2 is sufficient for most practical scenarios.
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def raman_perturbative_order1(cr_matrix, launch_powers, l_eff_per_ch):
+    """First-order perturbative Raman gain correction."""
+    n = len(launch_powers)
+    gamma1 = [sum(cr_matrix[i][j] * launch_powers[j] * l_eff_per_ch[j]
+                  for j in range(n)) for i in range(n)]
+    return gamma1
+```
+
+</details>
+
 ### 4.3 Numerical Raman Solver
 
 For high accuracy or strong Raman regimes, direct step-by-step integration of the coupled ODEs:
@@ -368,6 +543,21 @@ For high accuracy or strong Raman regimes, direct step-by-step integration of th
 $$P_i(z + \Delta z) = P_i(z) \cdot \left[1 + \left(-\alpha_i + \sum_j c_{r,ij} \cdot P_j(z)\right) \Delta z\right] \cdot L_{\text{lumped}}(z)$$
 
 where $L_{\text{lumped}}$ accounts for any discrete losses at position $z$. The solver iterates until convergence (residue tolerance ~$10^{-6}$).
+
+<details><summary>Pseudo Code</summary>
+
+```python
+def raman_numerical_step(powers, alpha, cr_matrix, dz):
+    """Single step of numerical Raman ODE integration."""
+    n = len(powers)
+    new_powers = []
+    for i in range(n):
+        gain = sum(cr_matrix[i][j] * powers[j] for j in range(n))
+        new_powers.append(powers[i] * (1 + (-alpha[i] + gain) * dz))
+    return new_powers
+```
+
+</details>
 
 ### 4.4 Spontaneous Raman Scattering
 
@@ -385,16 +575,26 @@ $$\eta_{\text{BE}} = \frac{-1}{1 - e^{h \Delta f / (k_B T)}}$$
 - $\Delta f$ = frequency offset between pump and signal
 - Factor of 2 accounts for dual polarization
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def spontaneous_raman_noise(h, baud, freq, eta_be, cr, pump_power_integral):
+    """Spontaneous Raman scattering noise power (dual-pol)."""
+    return 2 * h * baud * freq * (1 + eta_be) * cr * pump_power_integral
+```
+
+</details>
+
 ```mermaid
 flowchart TD
-    Q{"Raman\nEnabled?"}
-    Q -->|No| SIMPLE["Simple attenuation:\nP(z) = P₀ · e⁻ᵅᶻ"]
-    Q -->|Yes| PUMP{"Raman pumps\ndefined?"}
-    PUMP -->|No| SIG["Inter-channel SRS only\n(signal-signal Raman)"]
-    PUMP -->|Yes| DIR{"Pump\ndirection?"}
-    DIR -->|Co-propagating| UNI["Unidirectional solver\n(perturbative or numerical)"]
+    Q{"Raman<br/>Enabled?"}
+    Q -->|No| SIMPLE["Simple attenuation:<br/>P(z) = P₀ · e⁻ᵅᶻ"]
+    Q -->|Yes| PUMP{"Raman pumps<br/>defined?"}
+    PUMP -->|No| SIG["Inter-channel SRS only<br/>(signal-signal Raman)"]
+    PUMP -->|Yes| DIR{"Pump<br/>direction?"}
+    DIR -->|Co-propagating| UNI["Unidirectional solver<br/>(perturbative or numerical)"]
     DIR -->|Counter-propagating| UNI
-    DIR -->|Both| BIDIR["Iterative bidirectional\nsolver (convergence loop)"]
+    DIR -->|Both| BIDIR["Iterative bidirectional<br/>solver (convergence loop)"]
 
     style Q fill:#7c3aed,color:#fff
     style SIMPLE fill:#059669,color:#fff
@@ -429,6 +629,17 @@ where:
 - $B_{\text{signal}}$ = signal bandwidth / baud rate (Hz)
 - $\text{NF}_{\text{linear}} = 10^{\text{NF}_{\text{dB}}/10}$
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def ase_noise(h, freq, baud_rate, nf_db):
+    """ASE noise power from an EDFA (W)."""
+    nf_linear = 10 ** (nf_db / 10)
+    return h * freq * baud_rate * nf_linear
+```
+
+</details>
+
 **Physical interpretation:** The quantum-limited minimum noise figure is 3 dB (one spontaneous emission photon per mode). Practical EDFAs achieve 4-6 dB.
 
 ### 5.3 Noise Figure Models
@@ -454,6 +665,16 @@ In dB:
 
 $$\text{NF}_{\text{total,dB}} = 10\log_{10}\!\left(10^{\text{NF}_{1}/10} + 10^{(\text{NF}_{2} - G_{1})/10}\right)$$
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def cascaded_nf(nf1_db, nf2_db, g1_db):
+    """Cascaded noise figure of a dual-stage amplifier (dB)."""
+    return 10 * log10(10 ** (nf1_db / 10) + 10 ** ((nf2_db - g1_db) / 10))
+```
+
+</details>
+
 ### 5.4 Gain Profile, Tilt, and Ripple
 
 Real EDFAs do not have perfectly flat gain across frequency:
@@ -469,14 +690,24 @@ $$G(f) = G_{\text{flatmax}} + \text{ripple}(f) + \text{DGT}(f) \times s - \text{
 
 where $s$ is a scaling factor derived from the tilt target setting.
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def gain_profile(g_flatmax, ripple_f, dgt_f, scale, voa):
+    """Effective EDFA gain at frequency f (dB)."""
+    return g_flatmax + ripple_f + dgt_f * scale - voa
+```
+
+</details>
+
 ```mermaid
 flowchart LR
-    A["Signal In\n(per-channel powers)"] --> B["Input VOA"]
-    B --> C["Erbium Gain Medium\n+ Gain Profile"]
+    A["Signal In<br/>(per-channel powers)"] --> B["Input VOA"]
+    B --> C["Erbium Gain Medium<br/>+ Gain Profile"]
     C --> D["Output VOA"]
-    D --> E["Signal Out\n(amplified)"]
+    D --> E["Signal Out<br/>(amplified)"]
 
-    C -.-> F["ASE Noise Added\nP_ASE = h·f·B·NF"]
+    C -.-> F["ASE Noise Added<br/>P_ASE = h·f·B·NF"]
     C -.-> G["Gain = Ripple + DGT - VOA"]
 
     style C fill:#1e40af,color:#fff
@@ -518,6 +749,16 @@ OSNR is the industry-standard metric, normalized to a 0.1 nm reference bandwidth
 
 $$\text{OSNR}_{0.1\text{nm}} = \text{SNR}_{\text{signal BW}} - 10\log_{10}\!\left(\frac{12.5 \text{ GHz}}{B_{\text{signal}}}\right)$$
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def osnr_01nm(snr_signal_bw_db, baud_rate_hz):
+    """Convert signal-bandwidth SNR to 0.1 nm OSNR."""
+    return snr_signal_bw_db - 10 * log10(12.5e9 / baud_rate_hz)
+```
+
+</details>
+
 This normalization allows comparison between signals with different baud rates. A 100G signal at 32 GBaud and a 400G signal at 64 GBaud can be compared on the same OSNR scale.
 
 ### 6.3 GSNR (Generalized Signal-to-Noise Ratio)
@@ -532,6 +773,16 @@ $$\frac{1}{\text{GSNR}} = \frac{1}{\text{OSNR}_{\text{ASE}}} + \frac{1}{\text{OS
 
 GSNR determines whether a given transceiver mode (modulation format) is feasible on a path.
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def gsnr(signal_power, ase_power, nli_power):
+    """Generalized signal-to-noise ratio (linear)."""
+    return signal_power / (ase_power + nli_power)
+```
+
+</details>
+
 ### 6.4 Cascaded SNR
 
 When a signal passes through multiple noise sources, the total SNR is computed by adding noise powers:
@@ -544,13 +795,24 @@ $$\text{SNR}_{\text{total,dB}} = -10\log_{10}\!\left(10^{-\text{SNR}_1/10} + 10^
 
 This applies to cascading TX OSNR, per-span ASE/NLI contributions, and ROADM add/drop impairments.
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def cascaded_snr_db(snr_list_db):
+    """Total SNR from cascaded noise sources (dB)."""
+    inv_sum = sum(10 ** (-s / 10) for s in snr_list_db)
+    return -10 * log10(inv_sum)
+```
+
+</details>
+
 ```mermaid
 flowchart LR
-    TX["TX OSNR\n(transmitter noise)"] --> S1["Span 1\nASE + NLI"]
-    S1 --> ROADM["ROADM\nadd/drop OSNR"]
-    ROADM --> S2["Span 2\nASE + NLI"]
-    S2 --> SN["···\nSpan N"]
-    SN --> RX["RX GSNR\n(final quality)"]
+    TX["TX OSNR<br/>(transmitter noise)"] --> S1["Span 1<br/>ASE + NLI"]
+    S1 --> ROADM["ROADM<br/>add/drop OSNR"]
+    ROADM --> S2["Span 2<br/>ASE + NLI"]
+    S2 --> SN["···<br/>Span N"]
+    SN --> RX["RX GSNR<br/>(final quality)"]
 
     RX --- EQ["1/GSNR = Σ 1/SNRᵢ"]
 
@@ -676,15 +938,15 @@ The key switching and routing node in mesh DWDM networks. ROADMs have multiple d
 graph TB
     subgraph ROADM
         direction TB
-        EXP["Express Path\n(pass-through)\nLoss: ~16 dB"]
-        ADD["Add Path\n(inject signal)\nLoss: ~11 dB"]
-        DROP["Drop Path\n(extract signal)\nLoss: ~11 dB"]
+        EXP["Express Path<br/>(pass-through)<br/>Loss: ~16 dB"]
+        ADD["Add Path<br/>(inject signal)<br/>Loss: ~11 dB"]
+        DROP["Drop Path<br/>(extract signal)<br/>Loss: ~11 dB"]
     end
 
-    WIN["West\nIngress"] --> EXP
-    EIN["East\nIngress"] --> EXP
-    EXP --> WOUT["West\nEgress"]
-    EXP --> EOUT["East\nEgress"]
+    WIN["West<br/>Ingress"] --> EXP
+    EIN["East<br/>Ingress"] --> EXP
+    EXP --> WOUT["West<br/>Egress"]
+    EXP --> EOUT["East<br/>Egress"]
 
     LOCAL_TX["Local TX"] --> ADD
     ADD --> WOUT
@@ -757,7 +1019,7 @@ classDiagram
 
 Power is decomposed into three components via ratios that sum to 1:
 
-$$\text{signal\_ratio} + \text{ase\_ratio} + \text{nli\_ratio} = 1$$
+$$\mathrm{signal\_ratio} + \mathrm{ase\_ratio} + \mathrm{nli\_ratio} = 1$$
 
 **When NLI is added** (fiber nonlinearity generates noise):
 
@@ -769,6 +1031,19 @@ ase_ratio    *= (1 - nli_added_ratio)
 nli_ratio     = nli_ratio * (1 - nli_added_ratio) + nli_added_ratio
 ```
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def add_nli(signal_ratio, ase_ratio, nli_ratio, nli_power, pch):
+    """Update power ratios when NLI noise is added."""
+    nli_added = nli_power / pch
+    return (signal_ratio * (1 - nli_added),
+            ase_ratio * (1 - nli_added),
+            nli_ratio * (1 - nli_added) + nli_added)
+```
+
+</details>
+
 **When ASE is added** (amplifier noise):
 
 Total power increases; signal and NLI ratios decrease:
@@ -779,6 +1054,21 @@ nli_ratio    *= pch / pch_new
 ase_ratio     = (ase_ratio * pch + ase_added) / pch_new
 pch           = pch_new
 ```
+
+<details><summary>Pseudo Code</summary>
+
+```python
+def add_ase(signal_ratio, ase_ratio, nli_ratio, pch, ase_added):
+    """Update power ratios when ASE noise is added."""
+    pch_new = pch + ase_added
+    scale = pch / pch_new
+    return (signal_ratio * scale,
+            (ase_ratio * pch + ase_added) / pch_new,
+            nli_ratio * scale,
+            pch_new)
+```
+
+</details>
 
 **When gain or attenuation is applied:**
 
@@ -826,21 +1116,21 @@ graph LR
 
 ```mermaid
 flowchart TD
-    A["1. Load Equipment Library\n(amplifier types, fiber types, ROADM specs)"] --> B["2. Load Network Topology\n(nodes, links, fiber parameters)"]
+    A["1. Load Equipment Library<br/>(amplifier types, fiber types, ROADM specs)"] --> B["2. Load Network Topology<br/>(nodes, links, fiber parameters)"]
     B --> C["3. Add Missing Elements"]
-    C --> D["4. Build Network\n(set defaults, connector losses)"]
-    D --> E["5. Design Network\n(amplifier selection, gain targets)"]
+    C --> D["4. Build Network<br/>(set defaults, connector losses)"]
+    D --> E["5. Design Network<br/>(amplifier selection, gain targets)"]
     E --> F["6. Ready for Propagation"]
 
-    C --> C1["Split long fibers\n(> max_length)"]
+    C --> C1["Split long fibers<br/>(> max_length)"]
     C --> C2["Insert ROADM pre/post amps"]
-    C --> C3["Insert inline amplifiers\nbetween fiber spans"]
+    C --> C3["Insert inline amplifiers<br/>between fiber spans"]
 
     E --> E1["For each amplifier site:"]
     E1 --> E2["Compute span loss"]
-    E2 --> E3["Set gain target =\nspan_loss + delta_p"]
-    E3 --> E4["Select amp type\n(minimize NF)"]
-    E4 --> E5["Check power constraints\n(P_out ≤ P_max)"]
+    E2 --> E3["Set gain target =<br/>span_loss + delta_p"]
+    E3 --> E4["Select amp type<br/>(minimize NF)"]
+    E4 --> E5["Check power constraints<br/>(P_out ≤ P_max)"]
 
     style A fill:#1e40af,color:#fff
     style F fill:#059669,color:#fff
@@ -851,6 +1141,16 @@ flowchart TD
 **Span loss computation:**
 
 $$L_{\text{span}} = \sum_{\text{fibers}} L_{\text{fiber}} + \sum_{\text{fused}} L_{\text{fused}} - \sum_{\text{raman}} G_{\text{raman}}$$
+
+<details><summary>Pseudo Code</summary>
+
+```python
+def span_loss(fiber_losses, fused_losses, raman_gains):
+    """Total span loss in dB."""
+    return sum(fiber_losses) + sum(fused_losses) - sum(raman_gains)
+```
+
+</details>
 
 **Gain target:**
 
@@ -881,6 +1181,21 @@ $$n = \left\lfloor\frac{f - 193.1 \text{ THz}}{6.25 \text{ GHz}}\right\rfloor$$
 **Number of slots needed for a channel:**
 
 $$M = \left\lceil\frac{\text{channel spacing}}{12.5 \text{ GHz}}\right\rceil$$
+
+<details><summary>Pseudo Code</summary>
+
+```python
+def frequency_to_slot(freq_hz):
+    """ITU-T slot index from frequency."""
+    return int((freq_hz - 193.1e12) / 6.25e9)
+
+def slots_needed(channel_spacing_hz):
+    """Number of 12.5 GHz slots for a channel."""
+    from math import ceil
+    return ceil(channel_spacing_hz / 12.5e9)
+```
+
+</details>
 
 **First-fit algorithm:** Scan the bitmap from the lowest frequency and assign the first contiguous block of $M$ free slots. This is simple and efficient but can lead to fragmentation.
 
@@ -915,6 +1230,16 @@ where:
 - $M$ = constellation order (4 for QPSK, 16 for 16QAM, etc.)
 - $N_{\text{pol}}$ = number of polarizations (2 for DP)
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def bit_rate(baud, constellation_order, n_pol=2):
+    """Bit rate from symbol rate and modulation format."""
+    return baud * log2(constellation_order) * n_pol
+```
+
+</details>
+
 ### 10.3 Shannon Capacity Limit
 
 The theoretical maximum information rate for a given SNR (dual-polarization):
@@ -923,11 +1248,31 @@ $$C = 2 B_{\text{symbol}} \log_2(1 + \text{SNR})$$
 
 Practical systems achieve within 1-3 dB of the Shannon limit. The gap is the **implementation penalty**.
 
+<details><summary>Pseudo Code</summary>
+
+```python
+def shannon_capacity(baud, snr_linear):
+    """Dual-polarization Shannon capacity (bps)."""
+    return 2 * baud * log2(1 + snr_linear)
+```
+
+</details>
+
 ### 10.4 Feasibility and System Margin
 
 A transceiver mode is feasible on a path if:
 
 $$\text{GSNR}_{\text{received}} \geq \text{GSNR}_{\text{required}} + \text{Penalty}_{\text{CD}} + \text{Penalty}_{\text{PMD}} + \text{Penalty}_{\text{PDL}} + \text{Margin}_{\text{system}}$$
+
+<details><summary>Pseudo Code</summary>
+
+```python
+def is_feasible(gsnr_rx_db, gsnr_req_db, penalties_db, margin_db):
+    """Check if transceiver mode is feasible on path."""
+    return gsnr_rx_db >= gsnr_req_db + sum(penalties_db) + margin_db
+```
+
+</details>
 
 **Mode selection strategy:** Choose the highest-capacity format whose required GSNR (plus penalties and margins) can be met by the path. This maximizes throughput while ensuring reliability.
 

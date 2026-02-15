@@ -1,0 +1,5 @@
+1. ![bug](image.png)
+2. ![bug](image-1.png)
+3. ![bug](image-2.png)
+4. ![bug](image-3.png)
+5. ![showing \n instead of new line](image-4.png)
